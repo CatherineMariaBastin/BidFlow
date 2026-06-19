@@ -8,6 +8,8 @@ require("./config/db");
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
+const auctionRoutes = require("./routes/auctionRoutes");
+const bidRoutes = require("./routes/bidRoutes");
 
 const app = express();
 
@@ -22,6 +24,8 @@ app.get("/", (req, res) => {
 
 // API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/auctions", auctionRoutes);
+app.use("/api/bids", bidRoutes);
 
 // Server
 const PORT = process.env.PORT || 5000;
