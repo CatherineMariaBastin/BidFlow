@@ -5,10 +5,16 @@ import { useNavigate } from "react-router-dom";
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  const loginUser = async () => {
+  const loginUser = async (event) => {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+
     try {
       const res = await API.post("/auth/login", {
         email,
@@ -20,35 +26,62 @@ function Login() {
       alert("Login Successful");
 
       navigate("/dashboard");
-    } catch (error) {
-      alert("Login Failed");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+        "Login failed. Check backend and MySQL."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h2>Login</h2>
+    <div className="container py-5">
+      <div className="mx-auto card shadow" style={{ maxWidth: "420px" }}>
+        <div className="card-body">
+          <h2 className="mb-4">BidFlow Login</h2>
 
-      <input
-        placeholder="Email"
-        onChange={(e) => setEmail(e.target.value)}
-      />
+          <form onSubmit={loginUser}>
+            <input
+              className="form-control mb-3"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
 
-      <br />
-      <br />
+            <input
+              className="form-control mb-3"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
-      <input
-        type="password"
-        placeholder="Password"
-        onChange={(e) => setPassword(e.target.value)}
-      />
+            {error && (
+              <div className="alert alert-danger py-2">
+                {error}
+              </div>
+            )}
 
-      <br />
-      <br />
+            <button
+              className="btn btn-primary w-100"
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? "Logging in..." : "Login"}
+            </button>
+          </form>
 
-      <button onClick={loginUser}>
-        Login
-      </button>
+          <button
+            type="button"
+            className="btn btn-link mt-3"
+            onClick={() => navigate("/register")}
+          >
+            Create account
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

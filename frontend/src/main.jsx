@@ -4,10 +4,19 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import App from "./App";
 import "./index.css";
 
-ReactDOM.createRoot(
-  document.getElementById("root")
-).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const rootElement = document.getElementById("root");
+
+try {
+  ReactDOM.createRoot(rootElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+} catch (error) {
+  rootElement.innerHTML = `
+    <div style="padding: 24px; font-family: Arial, sans-serif;">
+      <h1>BidFlow could not start</h1>
+      <pre style="white-space: pre-wrap;">${error.message}</pre>
+    </div>
+  `;
+}

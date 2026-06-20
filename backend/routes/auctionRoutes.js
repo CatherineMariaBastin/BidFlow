@@ -23,4 +23,10 @@ router.get(
     auctionController.getAuctionById
 );
 
+router.delete(
+    "/:id",
+    auth,
+    auctionController.deleteAuction
+);
+
 module.exports = router;

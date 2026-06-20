@@ -1,6 +1,10 @@
-const db = require("../config/db");
+const {
+    getAuctionBids,
+    placeBid,
+    toAuctionRoom
+} = require("../services/auctionService");
 
-exports.placeBid = (req, res) => {
+exports.placeBid = async (req, res) => {
 
     const {
         auction_id,
@@ -9,93 +13,41 @@ exports.placeBid = (req, res) => {
 
     const bidder_id = req.user.id;
 
-    db.query(
-        "SELECT * FROM auctions WHERE id=?",
-        [auction_id],
-        (err, results) => {
+    try {
+        const result = await placeBid({
+            auctionId: auction_id,
+            bidderId: bidder_id,
+            bidAmount: bid_amount
+        });
 
-            if (results.length === 0) {
-                return res.status(404).json({
-                    message: "Auction not found"
-                });
-            }
+        const io = req.app.get("io");
 
-            const auction = results[0];
-
-            if (
-                bid_amount <=
-                auction.current_highest_bid
-            ) {
-                return res.status(400).json({
-                    message:
-                    "Bid must be higher than current bid"
-                });
-            }
-
-            db.query(
-                `
-                INSERT INTO bids
-                (
-                    auction_id,
-                    bidder_id,
-                    bid_amount
-                )
-                VALUES (?, ?, ?)
-                `,
-                [
-                    auction_id,
-                    bidder_id,
-                    bid_amount
-                ],
-                (err) => {
-
-                    if (err) {
-                        return res.status(500).json({
-                            message: err.message
-                        });
-                    }
-
-                    db.query(
-                        `
-                        UPDATE auctions
-                        SET current_highest_bid=?
-                        WHERE id=?
-                        `,
-                        [
-                            bid_amount,
-                            auction_id
-                        ]
-                    );
-
-                    res.json({
-                        message:
-                        "Bid placed successfully"
-                    });
-                }
+        if (io) {
+            io.to(toAuctionRoom(auction_id)).emit(
+                "newBid",
+                result
             );
         }
-    );
+
+        res.json({
+            message: "Bid placed successfully",
+            ...result
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            message: error.message
+        });
+    }
 };
 
-exports.getAuctionBids = (req, res) => {
+exports.getAuctionBids = async (req, res) => {
 
-    db.query(
-        `
-        SELECT *
-        FROM bids
-        WHERE auction_id=?
-        ORDER BY bid_amount DESC
-        `,
-        [req.params.auctionId],
-        (err, results) => {
-
-            if (err) {
-                return res.status(500).json({
-                    message: err.message
-                });
-            }
-
-            res.json(results);
-        }
-    );
+    try {
+        const bids = await getAuctionBids(req.params.auctionId);
+        res.json(bids);
+    } catch (error) {
+        res.status(500).json({
+            message: error.message
+        });
+    }
 };

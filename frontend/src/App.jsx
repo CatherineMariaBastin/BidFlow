@@ -4,6 +4,19 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AuctionDetails from "./pages/AuctionDetails";
+import Messages from "./pages/Messages";
+import Navbar from "./components/Navbar";
+
+function AppLayout({ children }) {
+  return (
+    <>
+      <Navbar />
+      <main className="app-main">
+        {children}
+      </main>
+    </>
+  );
+}
 
 function App() {
   return (
@@ -22,17 +35,43 @@ function App() {
 
         <Route
           path="/dashboard"
-          element={<Dashboard />}
+          element={
+            <AppLayout>
+              <Dashboard />
+            </AppLayout>
+          }
         />
 
         <Route
           path="/create-auction"
-          element={<CreateAuction />}
+          element={
+            <AppLayout>
+              <CreateAuction />
+            </AppLayout>
+          }
         />
 
         <Route
           path="/auction/:id"
-          element={<AuctionDetails />}
+          element={
+            <AppLayout>
+              <AuctionDetails />
+            </AppLayout>
+          }
+        />
+
+        <Route
+          path="/messages"
+          element={
+            <AppLayout>
+              <Messages />
+            </AppLayout>
+          }
+        />
+
+        <Route
+          path="*"
+          element={<Login />}
         />
       </Routes>
     </BrowserRouter>

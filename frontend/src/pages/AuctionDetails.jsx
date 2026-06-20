@@ -1,65 +1,188 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
+import socket from "../services/socket";
+
+const getCurrentUserId = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(
+      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+    );
+
+    return payload.id;
+  } catch (error) {
+    return null;
+  }
+};
 
 function AuctionDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [auction, setAuction] = useState(null);
   const [bids, setBids] = useState([]);
   const [bidAmount, setBidAmount] = useState("");
+  const [timeLeft, setTimeLeft] = useState("");
 
-  useEffect(() => {
-    fetchAuction();
-    fetchBids();
-  }, []);
-
-  const fetchAuction = async () => {
+  const fetchAuction = useCallback(async () => {
     try {
       const res = await API.get(`/auctions/${id}`);
       setAuction(res.data);
     } catch (error) {
       console.log(error);
     }
-  };
+  }, [id]);
 
-  const fetchBids = async () => {
+  const fetchBids = useCallback(async () => {
     try {
       const res = await API.get(`/bids/${id}`);
       setBids(res.data);
     } catch (error) {
       console.log(error);
     }
+  }, [id]);
+
+  useEffect(() => {
+    fetchAuction();
+    fetchBids();
+  }, [fetchAuction, fetchBids]);
+
+  useEffect(() => {
+    if (!auction) {
+      return;
+    }
+
+    const updateTimer = () => {
+      const remaining =
+        new Date(auction.end_time).getTime() - Date.now();
+
+      if (remaining <= 0 || auction.status === "ENDED") {
+        setTimeLeft("Ended");
+        return;
+      }
+
+      const totalSeconds = Math.floor(remaining / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+    };
+
+    updateTimer();
+    const timerId = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(timerId);
+  }, [auction]);
+
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit("joinAuction", id);
+
+    const handleNewBid = (payload) => {
+      setAuction((currentAuction) => {
+        if (!currentAuction) {
+          return currentAuction;
+        }
+
+        return {
+          ...currentAuction,
+          current_highest_bid: payload.current_highest_bid
+        };
+      });
+
+      fetchBids();
+    };
+
+    const handleAuctionEnded = (payload) => {
+      if (String(payload.auctionId) !== String(id)) {
+        return;
+      }
+
+      setAuction((currentAuction) => {
+        if (!currentAuction) {
+          return currentAuction;
+        }
+
+        return {
+          ...currentAuction,
+          status: "ENDED",
+          winner_name: payload.winner_name || payload.winner,
+          current_highest_bid:
+            payload.winning_bid || currentAuction.current_highest_bid
+        };
+      });
+
+      setTimeLeft("Ended");
+    };
+
+    socket.on("newBid", handleNewBid);
+    socket.on("auctionEnded", handleAuctionEnded);
+
+    return () => {
+      socket.emit("leaveAuction", id);
+      socket.off("newBid", handleNewBid);
+      socket.off("auctionEnded", handleAuctionEnded);
+    };
+  }, [fetchBids, id]);
+
+  const placeBid = () => {
+    const token = localStorage.getItem("token");
+
+    socket.emit(
+      "placeBid",
+      {
+        token,
+        auction_id: id,
+        bid_amount: bidAmount
+      },
+      (response) => {
+        if (!response.ok) {
+          alert(response.message || "Failed to Place Bid");
+          return;
+        }
+
+        alert("Bid Placed Successfully");
+        setBidAmount("");
+      }
+    );
   };
 
-  const placeBid = async () => {
+  const deleteAuction = async () => {
+    const confirmed = window.confirm(
+      "Delete this ended auction and its bids?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
 
-      await API.post(
-        "/bids",
-        {
-          auction_id: id,
-          bid_amount: bidAmount
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      await API.delete(`/auctions/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
+      });
 
-      alert("Bid Placed Successfully");
-
-      setBidAmount("");
-
-      fetchAuction();
-      fetchBids();
-
+      alert("Auction deleted successfully");
+      navigate("/dashboard");
     } catch (error) {
-      console.log(error);
-
-      alert("Failed to Place Bid");
+      alert(
+        error.response?.data?.message ||
+        "Failed to delete auction"
+      );
     }
   };
 
@@ -67,36 +190,86 @@ function AuctionDetails() {
     return <h2>Loading...</h2>;
   }
 
+  const hasEnded = auction.status === "ENDED" || timeLeft === "Ended";
+  const currentUserId = getCurrentUserId();
+  const isCreator = String(auction.creator_id) === String(currentUserId);
+  const canDeleteAuction = auction.status === "ENDED" && isCreator;
+  const winnerName = auction.winner_name || auction.winner;
+
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>{auction.title}</h1>
+    <div>
+      <div className="page-heading">
+        <div>
+          <h1 className="page-title">{auction.title}</h1>
+          <p className="page-subtitle">
+            {auction.description}
+          </p>
+        </div>
+
+        <span
+          className={`status-pill ${auction.status === "ENDED" ? "ended" : ""}`}
+        >
+          {auction.status}
+        </span>
+      </div>
+
+      <div className="details-layout">
+        <section className="details-panel">
 
       <p>
         <strong>Description:</strong> {auction.description}
       </p>
 
       <p>
-        <strong>Starting Price:</strong> ₹
-        {auction.starting_price}
+        <strong>Starting Price:</strong> Rs. {auction.starting_price}
       </p>
 
       <p>
-        <strong>Highest Bid:</strong> ₹
-        {auction.current_highest_bid}
+        <strong>Highest Bid:</strong> Rs. {auction.current_highest_bid}
+      </p>
+
+      <p>
+        <strong>Created By:</strong>{" "}
+        {auction.creator_name || "Unknown creator"}
+        {auction.creator_email && ` (${auction.creator_email})`}
       </p>
 
       <p>
         <strong>Status:</strong> {auction.status}
       </p>
 
-      <hr />
+      <p>
+        <strong>Time Left:</strong> {timeLeft}
+      </p>
 
+      {hasEnded && (
+        <p>
+          <strong>Winner:</strong>{" "}
+          {winnerName || "No winner"}
+        </p>
+      )}
+
+      {canDeleteAuction && (
+        <button
+          className="btn btn-danger mb-3"
+          type="button"
+          onClick={deleteAuction}
+        >
+          Delete Auction
+        </button>
+      )}
+
+      </section>
+
+      <aside className="details-panel">
       <h3>Place a Bid</h3>
 
       <input
+        className="form-control"
         type="number"
         placeholder="Enter Bid Amount"
         value={bidAmount}
+        disabled={hasEnded}
         onChange={(e) =>
           setBidAmount(e.target.value)
         }
@@ -105,12 +278,17 @@ function AuctionDetails() {
       <br />
       <br />
 
-      <button onClick={placeBid}>
+      <button
+        className="btn btn-primary w-100"
+        onClick={placeBid}
+        disabled={hasEnded}
+      >
         Place Bid
       </button>
+      </aside>
+      </div>
 
-      <hr />
-
+      <section className="history-panel mt-4">
       <h3>Bid History</h3>
 
       {bids.length === 0 ? (
@@ -119,16 +297,14 @@ function AuctionDetails() {
         bids.map((bid) => (
           <div
             key={bid.id}
-            style={{
-              border: "1px solid gray",
-              padding: "10px",
-              marginBottom: "10px"
-            }}
+            className="bid-row"
           >
-            ₹{bid.bid_amount}
+            <span className="bid-amount">Rs. {bid.bid_amount}</span>
+            <span>{bid.username || "Unknown bidder"}</span>
           </div>
         ))
       )}
+      </section>
     </div>
   );
 }

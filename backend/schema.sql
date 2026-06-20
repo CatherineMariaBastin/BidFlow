@@ -120,3 +120,31 @@ ADD COLUMN winner_id INT NULL,
 ADD CONSTRAINT fk_winner
 FOREIGN KEY (winner_id)
 REFERENCES users(id);
+
+CREATE TABLE messages (
+
+    id INT AUTO_INCREMENT PRIMARY KEY,
+
+    user_id INT NOT NULL,
+
+    auction_id INT NULL,
+
+    title VARCHAR(120) NOT NULL,
+
+    body TEXT NOT NULL,
+
+    is_read TINYINT(1) DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (auction_id)
+        REFERENCES auctions(id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX idx_messages_user_id
+ON messages(user_id);
