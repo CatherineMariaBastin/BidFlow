@@ -194,6 +194,7 @@ function AuctionDetails() {
   const currentUserId = getCurrentUserId();
   const isCreator = String(auction.creator_id) === String(currentUserId);
   const canDeleteAuction = auction.status === "ENDED" && isCreator;
+  const canPlaceBid = !hasEnded && !isCreator;
   const winnerName = auction.winner_name || auction.winner;
 
   return (
@@ -264,12 +265,18 @@ function AuctionDetails() {
       <aside className="details-panel">
       <h3>Place a Bid</h3>
 
+      {isCreator && (
+        <p className="text-muted">
+          You created this auction, so you cannot place bids on it.
+        </p>
+      )}
+
       <input
         className="form-control"
         type="number"
         placeholder="Enter Bid Amount"
         value={bidAmount}
-        disabled={hasEnded}
+        disabled={!canPlaceBid}
         onChange={(e) =>
           setBidAmount(e.target.value)
         }
@@ -281,7 +288,7 @@ function AuctionDetails() {
       <button
         className="btn btn-primary w-100"
         onClick={placeBid}
-        disabled={hasEnded}
+        disabled={!canPlaceBid}
       >
         Place Bid
       </button>

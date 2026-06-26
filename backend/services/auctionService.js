@@ -123,6 +123,12 @@ const placeBid = async ({ auctionId, bidderId, bidAmount }) => {
 
         const auction = auctions[0];
 
+        if (String(auction.creator_id) === String(bidderId)) {
+            const error = new Error("Auction creator cannot bid on their own auction");
+            error.statusCode = 403;
+            throw error;
+        }
+
         if (auction.status !== "ACTIVE") {
             const error = new Error("Auction has ended");
             error.statusCode = 400;
