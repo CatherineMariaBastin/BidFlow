@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
+import { getAssetUrl } from "../services/api";
 import socket from "../services/socket";
 
 const getCurrentUserId = () => {
@@ -17,7 +18,7 @@ const getCurrentUserId = () => {
     );
 
     return payload.id;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -30,6 +31,7 @@ function AuctionDetails() {
   const [bids, setBids] = useState([]);
   const [bidAmount, setBidAmount] = useState("");
   const [timeLeft, setTimeLeft] = useState("");
+  const [isWatchlisted, setIsWatchlisted] = useState(false);
 
   const fetchAuction = useCallback(async () => {
     try {
@@ -53,6 +55,32 @@ function AuctionDetails() {
     fetchAuction();
     fetchBids();
   }, [fetchAuction, fetchBids]);
+
+  useEffect(() => {
+    const fetchWatchlistState = async () => {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        return;
+      }
+
+      try {
+        const res = await API.get("/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        setIsWatchlisted(
+          res.data.watchlist.some((item) => String(item.id) === String(id))
+        );
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    fetchWatchlistState();
+  }, [id]);
 
   useEffect(() => {
     if (!auction) {
@@ -186,6 +214,42 @@ function AuctionDetails() {
     }
   };
 
+  const toggleWatchlist = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    try {
+      if (isWatchlisted) {
+        await API.delete(`/profile/watchlist/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+      } else {
+        await API.post(
+          `/profile/watchlist/${id}`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+      }
+
+      setIsWatchlisted(!isWatchlisted);
+    } catch (error) {
+      alert(
+        error.response?.data?.message ||
+        "Failed to update watchlist"
+      );
+    }
+  };
+
   if (!auction) {
     return <h2>Loading...</h2>;
   }
@@ -216,6 +280,13 @@ function AuctionDetails() {
 
       <div className="details-layout">
         <section className="details-panel">
+      {auction.image_url && (
+        <img
+          className="auction-detail-image"
+          src={getAssetUrl(auction.image_url)}
+          alt={auction.title}
+        />
+      )}
 
       <p>
         <strong>Description:</strong> {auction.description}
@@ -259,6 +330,14 @@ function AuctionDetails() {
           Delete Auction
         </button>
       )}
+
+      <button
+        className={`btn ${isWatchlisted ? "btn-outline-danger" : "btn-outline-primary"} mb-3`}
+        type="button"
+        onClick={toggleWatchlist}
+      >
+        {isWatchlisted ? "Remove from Watchlist" : "Add to Watchlist"}
+      </button>
 
       </section>
 

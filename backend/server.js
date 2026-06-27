@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const jwt = require("jsonwebtoken");
+const path = require("path");
 const { Server } = require("socket.io");
 
 // Database Connection
@@ -14,11 +15,13 @@ const authRoutes = require("./routes/authRoutes");
 const auctionRoutes = require("./routes/auctionRoutes");
 const bidRoutes = require("./routes/bidRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const profileRoutes = require("./routes/profileRoutes");
 const {
     createMessage,
     ensureMessagesTable
 } = require("./services/messageService");
 const {
+    ensureAuctionSchema,
     endExpiredAuctions,
     placeBid,
     toAuctionRoom
@@ -40,9 +43,17 @@ ensureMessagesTable().catch((error) => {
     console.error("Messages table setup failed:", error.message);
 });
 
+ensureAuctionSchema().catch((error) => {
+    console.error("Auction schema setup failed:", error.message);
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(
+    "/uploads",
+    express.static(path.join(__dirname, "uploads"))
+);
 
 // Test Route
 app.get("/", (req, res) => {
@@ -54,6 +65,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/auctions", auctionRoutes);
 app.use("/api/bids", bidRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/profile", profileRoutes);
 
 io.on("connection", (socket) => {
     socket.on("authenticate", (token) => {

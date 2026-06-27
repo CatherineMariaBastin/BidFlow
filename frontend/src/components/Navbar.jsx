@@ -100,6 +100,15 @@ function Navbar() {
               <span className="nav-count">{unreadCount}</span>
             )}
           </NavLink>
+
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              `nav-link-item ${isActive ? "active" : ""}`
+            }
+          >
+            Profile
+          </NavLink>
         </div>
 
         <button

@@ -10,6 +10,9 @@ exports.createAuction = (req, res) => {
     } = req.body;
 
     const creator_id = req.user.id;
+    const imageUrl = req.file
+        ? `/uploads/auctions/${req.file.filename}`
+        : null;
 
     const sql = `
     INSERT INTO auctions
@@ -19,9 +22,10 @@ exports.createAuction = (req, res) => {
         starting_price,
         current_highest_bid,
         creator_id,
-        end_time
+        end_time,
+        image_url
     )
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.query(
@@ -32,7 +36,8 @@ exports.createAuction = (req, res) => {
             starting_price,
             starting_price,
             creator_id,
-            end_time
+            end_time,
+            imageUrl
         ],
         (err, result) => {
 

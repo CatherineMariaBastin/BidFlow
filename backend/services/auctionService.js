@@ -4,6 +4,51 @@ const promiseDb = db.promise();
 
 const toAuctionRoom = (auctionId) => `auction-${auctionId}`;
 
+const ensureColumn = async ({ tableName, columnName, definition }) => {
+    const [rows] = await promiseDb.query(
+        `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = ?
+            AND COLUMN_NAME = ?
+        `,
+        [tableName, columnName]
+    );
+
+    if (rows.length === 0) {
+        await promiseDb.query(
+            `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`
+        );
+    }
+};
+
+const ensureAuctionSchema = async () => {
+    await ensureColumn({
+        tableName: "auctions",
+        columnName: "image_url",
+        definition: "VARCHAR(255) NULL"
+    });
+
+    await promiseDb.query(
+        `
+        CREATE TABLE IF NOT EXISTS auction_watchlist (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            auction_id INT NOT NULL,
+            user_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_watchlist_item (auction_id, user_id),
+            FOREIGN KEY (auction_id)
+                REFERENCES auctions(id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (user_id)
+                REFERENCES users(id)
+                ON DELETE CASCADE
+        )
+        `
+    );
+};
+
 const getAuctionById = async (auctionId) => {
     const [rows] = await promiseDb.query(
         "SELECT * FROM auctions WHERE id = ?",
@@ -189,6 +234,7 @@ const placeBid = async ({ auctionId, bidderId, bidAmount }) => {
 };
 
 module.exports = {
+    ensureAuctionSchema,
     endAuction,
     endExpiredAuctions,
     getAuctionBids,

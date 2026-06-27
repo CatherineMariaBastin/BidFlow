@@ -6,10 +6,13 @@ require("../controllers/auctionController");
 
 const auth =
 require("../middleware/authMiddleware");
+const upload =
+require("../middleware/uploadMiddleware");
 
 router.post(
     "/",
     auth,
+    upload.single("image"),
     auctionController.createAuction
 );
 

@@ -9,6 +9,8 @@ function CreateAuction() {
     starting_price: "",
     end_time: ""
   });
+  const [image, setImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
 
   const createAuction = async () => {
 
@@ -16,14 +18,24 @@ function CreateAuction() {
 
       const token =
         localStorage.getItem("token");
+      const formData = new FormData();
+
+      Object.entries(auction).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+
+      if (image) {
+        formData.append("image", image);
+      }
 
       await API.post(
         "/auctions",
-        auction,
+        formData,
         {
           headers: {
             Authorization:
-              `Bearer ${token}`
+              `Bearer ${token}`,
+            "Content-Type": "multipart/form-data"
           }
         }
       );
@@ -51,6 +63,29 @@ function CreateAuction() {
       </div>
 
       <section className="form-panel">
+        <label className="form-label">Product Image</label>
+
+        <input
+          className="form-control mb-3"
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const selectedFile = e.target.files[0];
+            setImage(selectedFile || null);
+            setPreviewUrl(
+              selectedFile ? URL.createObjectURL(selectedFile) : ""
+            );
+          }}
+        />
+
+        {previewUrl && (
+          <img
+            className="auction-image-preview mb-3"
+            src={previewUrl}
+            alt="Auction preview"
+          />
+        )}
+
         <label className="form-label">Title</label>
 
       <input

@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import API from "../services/api";
+import { getAssetUrl } from "../services/api";
 import { useNavigate } from "react-router-dom";
 
 function Dashboard() {
@@ -86,6 +87,18 @@ function Dashboard() {
               className="col-md-4 mb-4"
             >
               <div className="auction-card">
+                {auction.image_url ? (
+                  <img
+                    className="auction-card-image"
+                    src={getAssetUrl(auction.image_url)}
+                    alt={auction.title}
+                  />
+                ) : (
+                  <div className="auction-card-image placeholder">
+                    No image
+                  </div>
+                )}
+
                 <div className="card-body">
 
                   <div className="d-flex justify-content-between mb-2">

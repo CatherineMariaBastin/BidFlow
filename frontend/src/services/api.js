@@ -8,4 +8,16 @@ const API = axios.create({
   baseURL: apiBaseUrl,
 });
 
+export const getAssetUrl = (path) => {
+  if (!path) {
+    return "";
+  }
+
+  if (path.startsWith("http")) {
+    return path;
+  }
+
+  return `${apiBaseUrl.replace(/\/api\/?$/, "")}${path}`;
+};
+
 export default API;

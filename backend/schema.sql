@@ -23,6 +23,8 @@ CREATE TABLE auctions (
 
     current_highest_bid DECIMAL(10,2),
 
+    image_url VARCHAR(255),
+
     creator_id INT NOT NULL,
 
     start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -148,3 +150,24 @@ CREATE TABLE messages (
 
 CREATE INDEX idx_messages_user_id
 ON messages(user_id);
+
+CREATE TABLE auction_watchlist (
+
+    id INT AUTO_INCREMENT PRIMARY KEY,
+
+    auction_id INT NOT NULL,
+
+    user_id INT NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY unique_watchlist_item (auction_id, user_id),
+
+    FOREIGN KEY (auction_id)
+        REFERENCES auctions(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);

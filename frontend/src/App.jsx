@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AuctionDetails from "./pages/AuctionDetails";
 import Messages from "./pages/Messages";
+import Profile from "./pages/Profile";
 import Navbar from "./components/Navbar";
 
 function AppLayout({ children }) {
@@ -65,6 +66,15 @@ function App() {
           element={
             <AppLayout>
               <Messages />
+            </AppLayout>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <AppLayout>
+              <Profile />
             </AppLayout>
           }
         />
