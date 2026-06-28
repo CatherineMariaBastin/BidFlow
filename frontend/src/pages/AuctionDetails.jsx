@@ -88,9 +88,12 @@ function AuctionDetails() {
     }
 
     const updateTimer = () => {
-      const remaining =
-        new Date(auction.end_time).getTime() - Date.now();
+      const endTime = new Date(
+        auction.end_time.replace(" ", "T")
+      );
 
+      const remaining = endTime.getTime() - Date.now();
+      
       if (remaining <= 0 || auction.status === "ENDED") {
         setTimeLeft("Ended");
         return;

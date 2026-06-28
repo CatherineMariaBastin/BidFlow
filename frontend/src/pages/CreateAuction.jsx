@@ -22,7 +22,21 @@ function CreateAuction() {
       const formData = new FormData();
 
       Object.entries(auction).forEach(([key, value]) => {
-        formData.append(key, value);
+
+        if (key === "endTime") {
+          const localDate = new Date(value);
+
+          formData.append(
+            "endTime",
+            localDate.toISOString().slice(0, 19).replace("T", " ")
+          );
+
+        } else {
+
+          formData.append(key, value);
+
+        }
+
       });
 
       if (image) {
