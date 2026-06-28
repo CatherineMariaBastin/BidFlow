@@ -166,6 +166,10 @@ function AuctionDetails() {
 
   const placeBid = () => {
     const token = localStorage.getItem("token");
+    if (Number(bidAmount) < nextMinimumBid) {
+  alert(`Minimum bid is Rs. ${nextMinimumBid}`);
+  return;
+}
 
     socket.emit(
       "placeBid",
@@ -261,6 +265,11 @@ function AuctionDetails() {
   const canPlaceBid = !hasEnded && !isCreator;
   const winnerName = auction.winner_name || auction.winner;
 
+  const minimumIncrement = Number(auction.minimum_increment || 1);
+
+const nextMinimumBid =
+  Number(auction.current_highest_bid) + minimumIncrement;
+
   return (
     <div>
       <div className="page-heading">
@@ -300,6 +309,13 @@ function AuctionDetails() {
         <strong>Highest Bid:</strong> Rs. {auction.current_highest_bid}
       </p>
 
+      <p>
+  <strong>Minimum Increment:</strong> Rs. {minimumIncrement}
+</p>
+
+<p>
+  <strong>Next Minimum Bid:</strong> Rs. {nextMinimumBid}
+</p>
       <p>
         <strong>Created By:</strong>{" "}
         {auction.creator_name || "Unknown creator"}
@@ -351,16 +367,16 @@ function AuctionDetails() {
       )}
 
       <input
-        className="form-control"
-        type="number"
-        placeholder="Enter Bid Amount"
-        value={bidAmount}
-        disabled={!canPlaceBid}
-        onChange={(e) =>
-          setBidAmount(e.target.value)
-        }
-      />
-
+  className="form-control"
+  type="number"
+  min={nextMinimumBid}
+  placeholder={`Minimum Rs. ${nextMinimumBid}`}
+  value={bidAmount}
+  disabled={!canPlaceBid}
+  onChange={(e) =>
+    setBidAmount(e.target.value)
+  }
+/>
       <br />
       <br />
 

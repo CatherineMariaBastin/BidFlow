@@ -30,6 +30,12 @@ const ensureAuctionSchema = async () => {
         definition: "VARCHAR(255) NULL"
     });
 
+    await ensureColumn({
+    tableName: "auctions",
+    columnName: "minimum_increment",
+    definition: "DECIMAL(10,2) NOT NULL DEFAULT 1"
+});
+
     await promiseDb.query(
         `
         CREATE TABLE IF NOT EXISTS auction_watchlist (
@@ -187,12 +193,18 @@ const placeBid = async ({ auctionId, bidderId, bidAmount }) => {
         }
 
         const currentHighestBid = Number(auction.current_highest_bid);
+const minimumIncrement = Number(auction.minimum_increment || 1);
 
-        if (parsedBid <= currentHighestBid) {
-            const error = new Error("Bid must be higher than current bid");
-            error.statusCode = 400;
-            throw error;
-        }
+const minimumAllowedBid =
+    currentHighestBid + minimumIncrement;
+
+if (parsedBid < minimumAllowedBid) {
+    const error = new Error(
+        `Minimum allowed bid is ${minimumAllowedBid}`
+    );
+    error.statusCode = 400;
+    throw error;
+}
 
         const [result] = await promiseDb.query(
             `

@@ -3,12 +3,13 @@ import API from "../services/api";
 
 function CreateAuction() {
 
-  const [auction, setAuction] = useState({
-    title: "",
-    description: "",
-    starting_price: "",
-    end_time: ""
-  });
+ const [auction, setAuction] = useState({
+  title: "",
+  description: "",
+  startingPrice: "",
+  minimumIncrement: 1,
+  endTime: ""
+});
   const [image, setImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
@@ -27,6 +28,7 @@ function CreateAuction() {
       if (image) {
         formData.append("image", image);
       }
+      console.log(auction);
 
       await API.post(
         "/auctions",
@@ -121,23 +123,42 @@ function CreateAuction() {
         onChange={(e) =>
           setAuction({
             ...auction,
-            starting_price: e.target.value
+            startingPrice: e.target.value
           })
         }
       />
+      {/* ADD THIS HERE */}
+<label className="form-label">
+  Minimum Increment
+</label>
 
-        <label className="form-label">End Time</label>
+<input
+  className="form-control mb-3"
+  type="number"
+  min="1"
+  placeholder="Minimum Increment"
+  onChange={(e) =>
+    setAuction({
+      ...auction,
+      minimumIncrement: e.target.value
+    })
+  }
+/>
 
-      <input
-        className="form-control mb-4"
-        type="datetime-local"
-        onChange={(e) =>
-          setAuction({
-            ...auction,
-            end_time: e.target.value
-          })
-        }
-      />
+
+<label className="form-label">End Time</label>
+
+<input
+  className="form-control mb-4"
+  type="datetime-local"
+  value={auction.endTime}
+  onChange={(e) =>
+    setAuction({
+      ...auction,
+      endTime: e.target.value
+    })
+  }
+/>
 
       <button
         className="btn btn-primary"

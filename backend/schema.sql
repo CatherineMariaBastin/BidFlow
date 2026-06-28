@@ -31,6 +31,8 @@ CREATE TABLE auctions (
 
     end_time DATETIME NOT NULL,
 
+    minimum_increment DECIMAL(10,2) NOT NULL DEFAULT 1,
+
     status ENUM('ACTIVE','ENDED') DEFAULT 'ACTIVE',
 
     FOREIGN KEY (creator_id)
