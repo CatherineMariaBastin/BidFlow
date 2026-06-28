@@ -286,10 +286,12 @@ const placeBid = async ({ auctionId, bidderId, bidAmount }) => {
         throw error;
     }
 
-    await promiseDb.beginTransaction();
+    const connection = await promiseDb.getConnection();
 
     try {
-        const [auctions] = await promiseDb.query(
+        await connection.beginTransaction();
+
+        const [auctions] = await connection.query(
             "SELECT * FROM auctions WHERE id = ? FOR UPDATE",
             [auctionId]
         );
@@ -315,18 +317,17 @@ const placeBid = async ({ auctionId, bidderId, bidAmount }) => {
         }
 
         const currentHighestBid = Number(auction.current_highest_bid);
-const minimumIncrement = Number(auction.minimum_increment || 1);
+        const minimumIncrement = Number(auction.minimum_increment || 1);
 
-const minimumAllowedBid =
-    currentHighestBid + minimumIncrement;
+        const minimumAllowedBid = currentHighestBid + minimumIncrement;
 
-if (parsedBid < minimumAllowedBid) {
-    const error = new Error(
-        `Minimum allowed bid is ${minimumAllowedBid}`
-    );
-    error.statusCode = 400;
-    throw error;
-}
+        if (parsedBid < minimumAllowedBid) {
+            const error = new Error(
+                `Minimum allowed bid is ${minimumAllowedBid}`
+            );
+            error.statusCode = 400;
+            throw error;
+        }
 
         await enforceFraudRules({
             auction,
@@ -335,7 +336,7 @@ if (parsedBid < minimumAllowedBid) {
             currentHighestBid
         });
 
-        const [result] = await promiseDb.query(
+        const [result] = await connection.query(
             `
             INSERT INTO bids
             (
@@ -348,7 +349,7 @@ if (parsedBid < minimumAllowedBid) {
             [auctionId, bidderId, parsedBid]
         );
 
-        await promiseDb.query(
+        await connection.query(
             `
             UPDATE auctions
             SET current_highest_bid = ?
@@ -357,7 +358,7 @@ if (parsedBid < minimumAllowedBid) {
             [parsedBid, auctionId]
         );
 
-        await promiseDb.commit();
+        await connection.commit();
 
         return {
             bid: {
@@ -368,9 +369,16 @@ if (parsedBid < minimumAllowedBid) {
             },
             current_highest_bid: parsedBid
         };
+
     } catch (error) {
-        await promiseDb.rollback();
+
+        await connection.rollback();
         throw error;
+
+    } finally {
+
+        connection.release();
+
     }
 };
 

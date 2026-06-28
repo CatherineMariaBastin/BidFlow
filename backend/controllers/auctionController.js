@@ -143,31 +143,43 @@ exports.deleteAuction = async (req, res) => {
             });
         }
 
-        await promiseDb.beginTransaction();
+        const connection = await promiseDb.getConnection();
 
         try {
-            await promiseDb.query(
+            await connection.beginTransaction();
+
+            await connection.query(
                 "DELETE FROM bids WHERE auction_id = ?",
                 [auctionId]
             );
 
-            await promiseDb.query(
+            await connection.query(
                 "DELETE FROM auctions WHERE id = ?",
                 [auctionId]
             );
 
-            await promiseDb.commit();
+            await connection.commit();
+
+            res.json({
+                message: "Auction deleted successfully"
+            });
+
         } catch (error) {
-            await promiseDb.rollback();
+
+            await connection.rollback();
             throw error;
+
+        } finally {
+
+            connection.release();
+
         }
 
-        res.json({
-            message: "Auction deleted successfully"
-        });
     } catch (error) {
+
         res.status(500).json({
             message: error.message
         });
+
     }
 };
