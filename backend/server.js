@@ -17,6 +17,9 @@ const bidRoutes = require("./routes/bidRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const {
+    notifyFraudDetection
+} = require("./controllers/bidController");
+const {
     createMessage,
     ensureMessagesTable
 } = require("./services/messageService");
@@ -116,10 +119,21 @@ io.on("connection", (socket) => {
                 });
             }
         } catch (error) {
+            await notifyFraudDetection(
+                io,
+                error.fraudDetection
+            );
+
             if (callback) {
                 callback({
                     ok: false,
-                    message: error.message
+                    message: error.message,
+                    fraud: error.fraudDetection
+                        ? {
+                            rule: error.fraudDetection.rule,
+                            reason: error.fraudDetection.reason
+                        }
+                        : undefined
                 });
             }
         }

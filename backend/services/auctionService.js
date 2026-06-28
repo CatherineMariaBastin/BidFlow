@@ -96,6 +96,134 @@ const getTopBid = async (auctionId) => {
     return rows[0] || null;
 };
 
+const getUserName = async (userId) => {
+    const [rows] = await promiseDb.query(
+        "SELECT username FROM users WHERE id = ?",
+        [userId]
+    );
+
+    return rows.length ? rows[0].username : "Unknown user";
+};
+
+const createFraudError = ({
+    auction,
+    bidderId,
+    bidderName,
+    bidAmount,
+    rule,
+    reason,
+    statusCode = 400
+}) => {
+    const error = new Error(
+        `Bid blocked by fraud detection: ${reason}`
+    );
+
+    error.statusCode = statusCode;
+    error.fraudDetection = {
+        auctionId: auction.id,
+        auctionTitle: auction.title,
+        creatorId: auction.creator_id,
+        bidderId,
+        bidderName,
+        bidAmount,
+        rule,
+        reason,
+        bidderMessage:
+            `Your bid of Rs. ${bidAmount} on "${auction.title}" was blocked. ` +
+            `${reason} The bid was not recorded.`,
+        creatorMessage:
+            `A suspicious bid of Rs. ${bidAmount} by ${bidderName} on ` +
+            `"${auction.title}" was blocked. Reason: ${reason}`
+    };
+
+    throw error;
+};
+
+const enforceFraudRules = async ({
+    auction,
+    bidderId,
+    bidAmount,
+    currentHighestBid
+}) => {
+    const bidderName = await getUserName(bidderId);
+
+    if (String(auction.creator_id) === String(bidderId)) {
+        createFraudError({
+            auction,
+            bidderId,
+            bidderName,
+            bidAmount,
+            rule: "CREATOR_SELF_BID",
+            reason: "Auction creators cannot bid on their own auctions.",
+            statusCode: 403
+        });
+    }
+
+    const [topBids] = await promiseDb.query(
+        `
+        SELECT bidder_id
+        FROM bids
+        WHERE auction_id = ?
+        ORDER BY bid_amount DESC, bid_time ASC
+        LIMIT 1
+        `,
+        [auction.id]
+    );
+
+    if (
+        topBids.length > 0 &&
+        String(topBids[0].bidder_id) === String(bidderId)
+    ) {
+        createFraudError({
+            auction,
+            bidderId,
+            bidderName,
+            bidAmount,
+            rule: "SELF_OUTBIDDING",
+            reason: "You are already the highest bidder, so another bid would artificially inflate the auction."
+        });
+    }
+
+    const [recentBids] = await promiseDb.query(
+        `
+        SELECT COUNT(*) AS total
+        FROM bids
+        WHERE auction_id = ?
+            AND bidder_id = ?
+            AND bid_time >= DATE_SUB(NOW(), INTERVAL 60 SECOND)
+        `,
+        [auction.id, bidderId]
+    );
+
+    if (Number(recentBids[0].total) >= 3) {
+        createFraudError({
+            auction,
+            bidderId,
+            bidderName,
+            bidAmount,
+            rule: "RAPID_REPEAT_BIDDING",
+            reason: "Too many bids were placed by the same bidder within one minute."
+        });
+    }
+
+    const jumpAmount = bidAmount - currentHighestBid;
+    const isExtremeJump =
+        currentHighestBid > 0 &&
+        bidAmount >= currentHighestBid * 5 &&
+        jumpAmount >= 10000;
+
+    if (isExtremeJump) {
+        createFraudError({
+            auction,
+            bidderId,
+            bidderName,
+            bidAmount,
+            rule: "EXTREME_BID_JUMP",
+            reason: "The bid is an unusually large jump from the current highest bid."
+        });
+    }
+};
+
 const endAuction = async (auctionId, auctionTitle = null) => {
     const topBid = await getTopBid(auctionId);
 
@@ -174,12 +302,6 @@ const placeBid = async ({ auctionId, bidderId, bidAmount }) => {
 
         const auction = auctions[0];
 
-        if (String(auction.creator_id) === String(bidderId)) {
-            const error = new Error("Auction creator cannot bid on their own auction");
-            error.statusCode = 403;
-            throw error;
-        }
-
         if (auction.status !== "ACTIVE") {
             const error = new Error("Auction has ended");
             error.statusCode = 400;
@@ -205,6 +327,13 @@ if (parsedBid < minimumAllowedBid) {
     error.statusCode = 400;
     throw error;
 }
+
+        await enforceFraudRules({
+            auction,
+            bidderId,
+            bidAmount: parsedBid,
+            currentHighestBid
+        });
 
         const [result] = await promiseDb.query(
             `

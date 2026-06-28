@@ -3,6 +3,64 @@ const {
     placeBid,
     toAuctionRoom
 } = require("../services/auctionService");
+const { createMessage } = require("../services/messageService");
+
+const toUserRoom = (userId) => `user-${userId}`;
+
+const notifyFraudDetection = async (io, fraudDetection) => {
+    if (!fraudDetection) {
+        return;
+    }
+
+    const notifications = [
+        {
+            userId: fraudDetection.bidderId,
+            title: "Bid Blocked",
+            body: fraudDetection.bidderMessage,
+            event: "fraudBidBlocked"
+        }
+    ];
+
+    if (String(fraudDetection.creatorId) !== String(fraudDetection.bidderId)) {
+        notifications.push({
+            userId: fraudDetection.creatorId,
+            title: "Suspicious Bid Blocked",
+            body: fraudDetection.creatorMessage,
+            event: "fraudBidBlocked"
+        });
+    }
+
+    for (const notification of notifications) {
+        let savedMessage = null;
+
+        try {
+            savedMessage = await createMessage({
+                userId: notification.userId,
+                auctionId: fraudDetection.auctionId,
+                title: notification.title,
+                body: notification.body
+            });
+        } catch (error) {
+            console.error("Fraud message save failed:", error.message);
+        }
+
+        if (io) {
+            io.to(toUserRoom(notification.userId)).emit(
+                notification.event,
+                {
+                    id: savedMessage ? savedMessage.id : null,
+                    auctionId: fraudDetection.auctionId,
+                    auctionTitle: fraudDetection.auctionTitle,
+                    title: notification.title,
+                    message: notification.body,
+                    rule: fraudDetection.rule,
+                    reason: fraudDetection.reason,
+                    bidAmount: fraudDetection.bidAmount
+                }
+            );
+        }
+    }
+};
 
 exports.placeBid = async (req, res) => {
 
@@ -34,8 +92,19 @@ exports.placeBid = async (req, res) => {
             ...result
         });
     } catch (error) {
+        await notifyFraudDetection(
+            req.app.get("io"),
+            error.fraudDetection
+        );
+
         res.status(error.statusCode || 500).json({
-            message: error.message
+            message: error.message,
+            fraud: error.fraudDetection
+                ? {
+                    rule: error.fraudDetection.rule,
+                    reason: error.fraudDetection.reason
+                }
+                : undefined
         });
     }
 };
@@ -51,3 +120,5 @@ exports.getAuctionBids = async (req, res) => {
         });
     }
 };
+
+exports.notifyFraudDetection = notifyFraudDetection;
