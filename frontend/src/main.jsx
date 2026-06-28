@@ -8,9 +8,9 @@ const rootElement = document.getElementById("root");
 
 try {
   ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
+    
       <App />
-    </React.StrictMode>
+    
   );
 } catch (error) {
   rootElement.innerHTML = `

@@ -7,6 +7,7 @@ import AuctionDetails from "./pages/AuctionDetails";
 import Messages from "./pages/Messages";
 import Profile from "./pages/Profile";
 import Navbar from "./components/Navbar";
+import VerifyEmail from "./pages/VerifyEmail";
 
 function AppLayout({ children }) {
   return (
@@ -32,6 +33,13 @@ function App() {
         <Route
           path="/register"
           element={<Register />}
+        />
+
+        <Route
+          path="/verify/:token"
+          element={
+            <VerifyEmail />
+          }
         />
 
         <Route
